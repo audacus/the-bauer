@@ -29,16 +29,33 @@ class Bauer():
 
     def update(self):
         print("step: " + Step.string[self.step])
+
         if buttonR1.isPressed():
-            self.bye()
+            self.step = Step.BYE
+
+        self.nextStep()
         sleep(self.intervall)
 
+    def nextStep(self):
+        # welcome
+        if bauer.step == Step.HELLO:
+            self.step = Step.GROW
+        # grow field
+        elif bauer.step == Step.GROW:
+            self.step = Step.MOW
+        # mow field
+        elif bauer.step == Step.MOW:
+            self.step = Step.GATHER
+        # gather hay balls
+        elif bauer.step == Step.GATHER:
+            self.step = Step.GROW
+
     def hello(self):
-        bigTextScroll("Welcome to: THE BAUER   ")
+        # bigTextScroll("Welcome to: THE BAUER   ")
         self.update()
 
     def bye(self):
-        bigTextScroll("Au revoir!   ")
+        # bigTextScroll("Au revoir!   ")
         self.update()
 
     def grow(self):
@@ -64,17 +81,16 @@ repeat:
     # welcome
     if bauer.step == Step.HELLO:
         bauer.hello()
-        bauer.step = Step.GROW
     # grow field
     elif bauer.step == Step.GROW:
         bauer.grow()
-        bauer.step = Step.MOW
     # mow field
     elif bauer.step == Step.MOW:
         bauer.mow()
-        bauer.step = Step.GATHER
     # gather hay balls
     elif bauer.step == Step.GATHER:
         bauer.gather()
-        bauer.step = Step.GROW
-
+    # exit
+    elif bauer.step == Step.BYE:
+        bauer.bye()
+        break
