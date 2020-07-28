@@ -1,4 +1,5 @@
 from oxocard import *
+from oxocardext import *
 from oxobutton import *
 from oxoaccelerometer import *
 from math import *
@@ -12,14 +13,15 @@ def Enum(*sequential, **named):
 
 # enums
 Step = Enum("HELLO", "GROW", "MOW", "GATHER", "BYE")
-Orientation = Enum("EAST", "SOUTH", "WEST", "NORTH")
+Orientation = Enum("EAST", "SOUTH", "WEST", "NORTH", "NONE")
+Difference = Enum("SAME", "LEFT", "RIGHT", "OPPOSITE")
 Direction = Enum("STRAIGHT", "LEFT", "RIGHT")
 Gear = Enum("FORWARD", "NEUTRAL", "REVERSE")
 
 # basic initializations
 enableRepaint(False)
-INTERVALL = 1.0
-accelerometerThreshold = 3
+INTERVALL = 3.0
+accelerometerThreshold = 9
 FIELD_WIDTH = 8
 FIELD_HEIGHT = 8
 # colors
@@ -41,14 +43,58 @@ COL_FIELD_MOWN = COL_BROWN
 # classes
 class Oxocard():
     def __init__(self, accelerometerThreshold):
-        self.accThreshold = accelerometerThreshold
+        self.threshold = accelerometerThreshold
         self.acc = Accelerometer.create()
         self.R1 = Button(BUTTON_R1)
 
     def getOrientation(self):
+        orientation = Orientation.NONE
+        # west < 0 < east
         roll = self.acc.getRoll()
+        rollAbs = abs(roll)
+        # north < 0 < south
         pitch = self.acc.getPitch()
+        pitchAbs = abs(pitch)
+        # check west/east
+        if rollAbs > pitchAbs and rollAbs > self.threshold:
+            if roll < 0:
+                orientation = Orientation.WEST
+            else:
+                orientation = Orientation.EAST
+        # check north/south
+        elif pitchAbs > rollAbs and pitchAbs > self.threshold:
+            if pitch < 0:
+                orientation = Orientation.NORTH
+            else:
+                orientation = Orientation.SOUTH
 
+        return orientation
+
+    def getDifference(self, one, two):
+        diff = Difference.SAME
+
+        if (one != Orientation.NONE and two != Orientation.NONE):
+            # map orientations to degrees
+            orientSwitcher = {
+                Orientation.NORTH: 0,
+                Orientation.EAST: 90,
+                Orientation.SOUTH: 180,
+                Orientation.WEST: 270
+            }
+            # map degree differences to direction differences
+            diffSwitcher = {
+                0: Difference.SAME,
+                90: Difference.RIGHT,
+                180: Difference.OPPOSITE,
+                -180: Difference.OPPOSITE,
+                -90: Difference.LEFT
+            }
+            # calculate direction difference
+            alpha = orientSwitcher.get(one, 0)
+            beta = orientSwitcher.get(two, 0)
+            diff = diffSwitcher.get(beta - alpha % 360, Difference.SAME)
+
+        return diff
 
 
 class Field():
@@ -82,6 +128,7 @@ class Bauer():
         self.nextStep()
         sleep(self.intervall)
 
+    # draw display
     def draw(self):
         width = self.field.width
         height = self.field.height
@@ -117,6 +164,7 @@ class Bauer():
             matrix[y][x] = color
         # paint whole matrix
         image(matrix)
+        repaint()
 
     def nextStep(self):
         # welcome
@@ -172,9 +220,36 @@ class Tractor():
 
     def update(self):
         self.updateGear()
+        self.updateDirection()
 
     def updateGear(self):
-        oxoOrientation = self.oxo.getOrientation()
+        orientOxo = self.oxo.getOrientation()
+        # if no oxocard orientation -> stop
+        if orientOxo == Orientation.NONE:
+            self.gear = Gear.NEUTRAL
+        else:
+            diff = self.oxo.getDifference(self.orientation, orientOxo)
+            # forward
+            if diff == Difference.SAME:
+                # if reversing -> stop
+                if self.gear == Gear.REVERSE:
+                    self.gear = Gear.NEUTRAL
+                # if already stopped -> forward
+                elif self.gear == Gear.NEUTRAL:
+                    self.gear = Gear.FORWARD
+            # reverse
+            elif diff == Difference.OPPOSITE:
+                # if driving forward -> stop
+                if self.gear == Gear.FORWARD:
+                    self.gear = Gear.NEUTRAL
+                # if already stopped -> revert
+                elif self.gear == Gear.NEUTRAL:
+                    self.gear = Gear.REVERSE
+        print(Gear.string[self.gear])
+
+    def updateDirection(self):
+        orientOxo = self.oxo.getOrientation()
+        # TODO:
 
 
 # game loop
