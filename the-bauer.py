@@ -20,7 +20,7 @@ Gear = Enum("FORWARD", "NEUTRAL", "REVERSE")
 
 # basic initializations
 enableRepaint(False)
-INTERVALL = 3.0
+INTERVALL = 1.0
 accelerometerThreshold = 9
 FIELD_WIDTH = 8
 FIELD_HEIGHT = 8
@@ -86,16 +86,46 @@ class Oxocard():
                 0: Difference.SAME,
                 90: Difference.RIGHT,
                 180: Difference.OPPOSITE,
-                -180: Difference.OPPOSITE,
-                -90: Difference.LEFT
+                270: Difference.LEFT,
+                360: Difference.SAME
             }
             # calculate direction difference
             alpha = orientSwitcher.get(one, 0)
             beta = orientSwitcher.get(two, 0)
-            diff = diffSwitcher.get(beta - alpha % 360, Difference.SAME)
+            phi = beta - alpha % 360
+            phi = phi if phi > 0 else 360 + phi
+            diff = diffSwitcher.get(phi, Difference.SAME)
 
         return diff
 
+    def getOrientationFromDifference(self, orient, diff):
+        orientSwitcher = {
+            Orientation.NORTH: 0,
+            Orientation.EAST: 90,
+            Orientation.SOUTH: 180,
+            Orientation.WEST: 270
+        }
+        diffSwitcher = {
+            Difference.SAME: 0,
+            Difference.RIGHT: 90,
+            Difference.OPPOSITE: 180,
+            Difference.LEFT: -90
+        }
+        degSwitcher = {
+            0: Orientation.NORTH,
+            90: Orientation.EAST,
+            180: Orientation.SOUTH,
+            270: Orientation.WEST,
+            -90: Orientation.WEST
+        }
+
+        # get degree value of orientation
+        degOrient = orientSwitcher.get(orient, 0)
+        # get degree operand of difference
+        degDiff = diffSwitcher.get(diff, 0)
+        # calculate new degree value and get corresponding orientation
+        phi = (degOrient + degDiff) % 360
+        return degSwitcher.get(phi, Orientation.NONE)
 
 class Field():
     def __init__(self, width, height):
@@ -113,7 +143,7 @@ class Bauer():
         self.intervall = intervall
         self.oxo = Oxocard(accelerometerThreshold)
         self.field = Field(FIELD_WIDTH, FIELD_HEIGHT)
-        self.tractor = Tractor(COL_TRAC_MOW_BACK, COL_TRAC_MOW_FRONT, Orientation.EAST, Direction.STRAIGHT, Gear.NEUTRAL)
+        self.trac = Tractor(COL_TRAC_MOW_BACK, COL_TRAC_MOW_FRONT, Orientation.EAST, Direction.STRAIGHT, Gear.NEUTRAL)
 
     def update(self):
         print("step: " + Step.string[self.step])
@@ -121,7 +151,7 @@ class Bauer():
         if self.oxo.R1.isPressed():
             self.step = Step.BYE
 
-        self.tractor.update()
+        self.trac.update()
         self.draw()
 
         # TODO: add condition for next step
@@ -148,18 +178,18 @@ class Bauer():
                 color = COL_FIELD_GROWN
 
             # check if tractor
-            # back 1
-            if self.tractor.elements[0][0] == x and self.tractor.elements[0][1] == y:
-                color = self.tractor.colorBack
-            # front 1
-            elif self.tractor.elements[1][0] == x and self.tractor.elements[1][1] == y:
-                color = self.tractor.colorFront
-            # back 2
-            elif self.tractor.elements[2][0] == x and self.tractor.elements[2][1] == y:
-                color = self.tractor.colorBack
-            # front 2
-            elif self.tractor.elements[3][0] == x and self.tractor.elements[3][1] == y:
-                color = self.tractor.colorFront
+            # back left
+            if self.trac.elements[self.trac.iBL][self.trac.iX] == x and self.trac.elements[self.trac.iBL][self.trac.iY] == y:
+                color = self.trac.colorBack
+            # front left
+            elif self.trac.elements[self.trac.iFL][self.trac.iX] == x and self.trac.elements[self.trac.iFL][self.trac.iY] == y:
+                color = self.trac.colorFront
+            # back right
+            elif self.trac.elements[self.trac.iBR][self.trac.iX] == x and self.trac.elements[self.trac.iBR][self.trac.iY] == y:
+                color = self.trac.colorBack
+            # front right
+            elif self.trac.elements[self.trac.iFR][self.trac.iX] == x and self.trac.elements[self.trac.iFR][self.trac.iY] == y:
+                color = self.trac.colorFront
             # set color
             matrix[y][x] = color
         # paint whole matrix
@@ -199,12 +229,35 @@ class Bauer():
 
 class Tractor():
     def __init__(self, colorBack, colorFront, orientation, direction, gear):
+        # axis indices
+        # [X, Y]
+        self.iX = 0
+        self.iY = 1
+        # element indices
+        # [BL][FL] -->
+        # [BR][FR] -->
+        self.iBL = 0
+        self.iFL = 1
+        self.iBR = 2
+        self.iFR = 3
+        # elements
+        self.elements = [[0, 0], [1, 0], [0, 1], [1, 1]]
+        # colors
         self.colorBack = colorBack
         self.colorFront = colorFront
-        self.orientation = orientation
-        self.direction = direction
+
+        # difference between orientation of tractor and orientation of oxocard
+        self.difference = Difference.SAME
+        # driving state (forward, reverse, neutral)
         self.gear = gear
+        self.invert = False
+        # orientation of vehicle in the field (N, E, S, W)
+        self.orientation = orientation
+        # direction of travel (forward, right, left)
+        self.direction = direction
+
         self.oxo = Oxocard(accelerometerThreshold)
+
         self.resetPosition()
 
     def lineUp(self):
@@ -212,25 +265,27 @@ class Tractor():
         # TODO: drive onto field (staging)
 
     def resetPosition(self):
-        # back/front
-        # [0][1] -->
-        # [2][3] -->
         # self.elements = [[-2, 0], [-1, 0], [-2, 1], [-1, 1]]
         self.elements = [[0, 0], [1, 0], [0, 1], [1, 1]]
 
     def update(self):
+        self.updateDifference()
         self.updateGear()
         self.updateDirection()
+        self.updateElements()
+
+    def updateDifference(self):
+        self.difference = self.oxo.getDifference(self.orientation, self.oxo.getOrientation())
 
     def updateGear(self):
         orientOxo = self.oxo.getOrientation()
         # if no oxocard orientation -> stop
         if orientOxo == Orientation.NONE:
             self.gear = Gear.NEUTRAL
+            self.invert = False
         else:
-            diff = self.oxo.getDifference(self.orientation, orientOxo)
             # forward
-            if diff == Difference.SAME:
+            if self.difference == Difference.SAME and not self.invert:
                 # if reversing -> stop
                 if self.gear == Gear.REVERSE:
                     self.gear = Gear.NEUTRAL
@@ -238,18 +293,94 @@ class Tractor():
                 elif self.gear == Gear.NEUTRAL:
                     self.gear = Gear.FORWARD
             # reverse
-            elif diff == Difference.OPPOSITE:
+            elif self.difference == Difference.OPPOSITE:
                 # if driving forward -> stop
                 if self.gear == Gear.FORWARD:
                     self.gear = Gear.NEUTRAL
                 # if already stopped -> revert
                 elif self.gear == Gear.NEUTRAL:
                     self.gear = Gear.REVERSE
-        print(Gear.string[self.gear])
 
     def updateDirection(self):
-        orientOxo = self.oxo.getOrientation()
-        # TODO:
+        # change direction only when moving
+        if self.gear == Gear.FORWARD or self.gear == Gear.REVERSE:
+            if self.difference == Difference.SAME or self.difference == Difference.OPPOSITE:
+                self.direction = Direction.STRAIGHT
+            elif self.difference == Difference.RIGHT:
+                self.direction = Direction.RIGHT
+            elif self.difference == Difference.LEFT:
+                self.direction = Direction.LEFT
+
+    def updateElements(self):
+        move = self.oxo.getOrientationFromDifference(self.orientation, self.difference)
+        if self.gear == Gear.FORWARD:
+            if self.direction == Direction.STRAIGHT:
+                self.moveElements(move, 1)
+                self.invert = False
+            elif self.direction == Direction.LEFT:
+                self.goLeft()
+                self.orientation = move
+            elif self.direction == Direction.RIGHT:
+                self.goRight()
+                self.orientation = move
+        elif self.gear == Gear.REVERSE:
+            # invert movement
+            if self.direction == Direction.STRAIGHT:
+                if self.invert:
+                    move = self.oxo.getOrientationFromDifference(move, Difference.OPPOSITE)
+                self.moveElements(move, 1)
+            elif self.direction == Direction.LEFT:
+                if self.invert:
+                    self.goRight()
+                    move = self.oxo.getOrientationFromDifference(move, Difference.OPPOSITE)
+                else:
+                    self.goLeft()
+                self.orientation = move
+                self.invert = True
+            elif self.direction == Direction.RIGHT:
+                if self.invert:
+                    move = self.oxo.getOrientationFromDifference(move, Difference.OPPOSITE)
+                    self.goLeft()
+                else:
+                    self.goRight()
+                self.orientation = move
+                self.invert = True
+
+    def goLeft(self):
+        elBL = self.elements[self.iBR]
+        elFL = self.elements[self.iBL]
+        elBR = self.elements[self.iFR]
+        elFR = self.elements[self.iFL]
+        self.elements[self.iBL] = elBL
+        self.elements[self.iFL] = elFL
+        self.elements[self.iBR] = elBR
+        self.elements[self.iFR] = elFR
+
+    def goRight(self):
+        elBL = self.elements[self.iFL]
+        elFL = self.elements[self.iFR]
+        elBR = self.elements[self.iBL]
+        elFR = self.elements[self.iBR]
+        self.elements[self.iBL] = elBL
+        self.elements[self.iFL] = elFL
+        self.elements[self.iBR] = elBR
+        self.elements[self.iFR] = elFR
+
+
+    def moveElements(self, orient, amount):
+        # define how to alter element values
+        # [x, y]
+        moveSwitcher = {
+            Orientation.NORTH: [0, -amount],
+            Orientation.EAST: [amount, 0],
+            Orientation.SOUTH: [0, amount],
+            Orientation.WEST: [-amount, 0]
+        }
+        movement = moveSwitcher.get(orient, [0, 0])
+        # alter each element
+        for el in self.elements:
+            el[self.iX] = el[self.iX] + movement[self.iX]
+            el[self.iY] = el[self.iY] + movement[self.iY]
 
 
 # game loop
