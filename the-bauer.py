@@ -32,16 +32,19 @@ COL_RED =     0xff0000
 COL_GREEN =   0x198a00
 COL_BLUE =    0x003e8a
 COL_YELLOW =  0xffeb36
-COL_BROWN =   0x695a3c
+# brown -> light brown
+COL_BROWN =   0x423a29
 COL_GROW_01 = 0x756644
 COL_GROW_02 = 0x82734c
+# light brown -> green
 COL_GROW_03 = 0x8e7f54
-COL_GROW_04 = 0x9b8c5c
-COL_GROW_05 = 0xa79864
-COL_GROW_06 = 0xb4a56d
-COL_GROW_07 = 0xc0b275
-COL_GROW_08 = 0xcdbe7d
-COL_GROW_09 = 0xd9cb85
+COL_GROW_04 = 0x316e19
+COL_GROW_05 = 0x2a910d
+COL_GROW_06 = 0x2aa308
+COL_GROW_07 = 0x49be11
+COL_GROW_08 = 0xb8d755
+# green -> beige
+COL_GROW_09 = 0x89ca34
 COL_GROW_10 = 0xe6d78d
 COL_GROW_11 = 0xf2e495
 COL_BEIGE =   0xfff19e
@@ -185,8 +188,8 @@ class Field():
         # flags
         self.MOWN = 0
         self.MAX_MOWN = 3
-        self.GROWN = 10
-        self.MAX_GROWN = 12
+        self.GROWN = 11
+        self.MAX_GROWN = 13
         self.HAYBALL = 15
 
         self.width = width
