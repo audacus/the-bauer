@@ -284,7 +284,7 @@ class Bauer():
         self.field = Field(FIELD_WIDTH, FIELD_HEIGHT, COL_FIELD_MOWN, COL_FIELD_GROWN)
         self.trac = self.getTracMow()
         self.matrix = [[COL_BLACK for i in range(self.field.width)] for j in range(self.field.height)]
-        self.resetOffset()
+        self.resetOffsets()
 
     def getTracMow(self):
         return Tractor(COL_TRAC_MOW_BACK, COL_TRAC_MOW_FRONT, Orientation.EAST, Direction.STRAIGHT, Gear.NEUTRAL)
@@ -423,7 +423,7 @@ class Bauer():
                     self.offsetIsGrown = self.offsetIsGrown - 1
                 else:
                     self.step = Step.MOW
-                    # bigTextScroll(" Mow!  ")
+                    bigTextScroll(" Mow!  ")
                     self.trac.reset()
         # mow field
         elif bauer.step == Step.MOW:
@@ -432,7 +432,7 @@ class Bauer():
                     self.offsetIsMown = self.offsetIsMown - 1
                 else:
                     self.step = Step.GATHER
-                    # bigTextScroll(" Gather!  ")
+                    bigTextScroll(" Gather!  ")
                     self.trac = self.getTracGather()
         # gather hay balls
         elif bauer.step == Step.GATHER:
@@ -445,11 +445,11 @@ class Bauer():
                     self.trac = self.getTracMow()
 
     def hello(self):
-        # bigTextScroll("  Welcome to: THE BAUER   ")
+        bigTextScroll(" Welcome to: THE BAUER  ")
         self.update()
 
     def bye(self):
-        bigTextScroll("  Au revoir!   ")
+        bigTextScroll(" Au revoir!  ")
         self.update()
 
     def grow(self):
@@ -628,7 +628,9 @@ class Tractor():
 
 # game loop
 bauer = Bauer(Step.HELLO, INTERVALL)
-repeat:
+
+running = True
+while (running):
     # welcome
     if bauer.step == Step.HELLO:
         bauer.hello()
@@ -644,4 +646,4 @@ repeat:
     # exit
     elif bauer.step == Step.BYE:
         bauer.bye()
-        break
+        running = False
