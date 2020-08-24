@@ -21,7 +21,7 @@ Gear = Enum("FORWARD", "NEUTRAL", "REVERSE")
 
 # basic initializations
 enableRepaint(False)
-INTERVALL = 1.0
+INTERVALL = 0.5
 accelerometerThreshold = 9
 FIELD_WIDTH = 8
 FIELD_HEIGHT = 8
@@ -234,8 +234,8 @@ class Field():
     def isGathered(self):
         for i in range(len(self.dots)):
             # check all dots if mowed (no hayball)
-            if self.dots[i] <= self.MAX_MOWN:
-                return
+            if self.dots[i] > self.MAX_MOWN:
+                return False
         return True
 
     def getColorComplex(self, dot):
@@ -282,11 +282,20 @@ class Bauer():
         self.intervall = intervall
         self.oxo = Oxocard(accelerometerThreshold)
         self.field = Field(FIELD_WIDTH, FIELD_HEIGHT, COL_FIELD_MOWN, COL_FIELD_GROWN)
-        self.trac = Tractor(COL_TRAC_MOW_BACK, COL_TRAC_MOW_FRONT, Orientation.EAST, Direction.STRAIGHT, Gear.NEUTRAL)
+        self.trac = self.getTracMow()
+        self.matrix = [[COL_BLACK for i in range(self.field.width)] for j in range(self.field.height)]
+        self.resetOffset()
+
+    def getTracMow(self):
+        return Tractor(COL_TRAC_MOW_BACK, COL_TRAC_MOW_FRONT, Orientation.EAST, Direction.STRAIGHT, Gear.NEUTRAL)
+
+    def getTracGather(self):
+        return Tractor(COL_TRAC_GATHER_BACK, COL_TRAC_GATHER_FRONT, Orientation.EAST, Direction.STRAIGHT, Gear.NEUTRAL)
+
+    def resetOffsets(self):
         self.offsetIsGrown = 3
         self.offsetIsMown = 3
         self.offsetIsGathered = 3
-        self.matrix = [[COL_BLACK for i in range(self.field.width)] for j in range(self.field.height)]
 
     def update(self):
         print("step: " + Step.string[self.step])
@@ -319,7 +328,7 @@ class Bauer():
 
             dot = self.field.dots[i]
             # flag if dot ist mown
-            mowed = False
+            ranover = False
             x = i % width
             y = int(i / width)
 
@@ -334,31 +343,39 @@ class Bauer():
             # back left
             if self.trac.elements[self.trac.iBL][self.trac.iX] == x and self.trac.elements[self.trac.iBL][self.trac.iY] == y:
                 color = self.trac.colorBack
-                if self.step == Step.MOW:
-                    mowed = True
+                if self.step == Step.MOW or self.step == Step.GATHER:
+                    ranover = True
             # front left
             elif self.trac.elements[self.trac.iFL][self.trac.iX] == x and self.trac.elements[self.trac.iFL][self.trac.iY] == y:
                 color = self.trac.colorFront
-                if self.step == Step.MOW:
-                    mowed = True
+                if self.step == Step.MOW or self.step == Step.GATHER:
+                    ranover = True
             # back right
             elif self.trac.elements[self.trac.iBR][self.trac.iX] == x and self.trac.elements[self.trac.iBR][self.trac.iY] == y:
                 color = self.trac.colorBack
-                if self.step == Step.MOW:
-                    mowed = True
+                if self.step == Step.MOW or self.step == Step.GATHER:
+                    ranover = True
             # front right
             elif self.trac.elements[self.trac.iFR][self.trac.iX] == x and self.trac.elements[self.trac.iFR][self.trac.iY] == y:
                 color = self.trac.colorFront
-                if self.step == Step.MOW:
-                    mowed = True
+                if self.step == Step.MOW or self.step == Step.GATHER:
+                    ranover = True
             # set color
             self.matrix[y][x] = color
 
-            # check if dot got mowed
-            if self.step == Step.MOW and dot != self.field.HAYBALL and mowed:
-                if i >= 9 and self.isHayball(x, y):
-                    dot = self.field.HAYBALL
-                else:
+            # check if dot got ranover by tractor
+            if ranover:
+                # when mowing and field is not hayball
+                if self.step == Step.MOW and dot != self.field.HAYBALL:
+                    # check if field becomes hayball
+                    if i >= 9 and self.isHayball(x, y):
+                        dot = self.field.HAYBALL
+                    else:
+                        # mowed field
+                        dot = randrange(self.field.MAX_MOWN)
+                # when gathering and field is hayball
+                elif self.step == Step.GATHER and dot == self.field.HAYBALL:
+                    # mowed field
                     dot = randrange(self.field.MAX_MOWN)
 
             self.field.dots[i] = dot
@@ -400,12 +417,13 @@ class Bauer():
             self.step = Step.GROW
         # grow field
         elif bauer.step == Step.GROW:
+            self.resetOffsets()
             if self.field.isGrown():
                 if self.offsetIsGrown > 0:
                     self.offsetIsGrown = self.offsetIsGrown - 1
                 else:
                     self.step = Step.MOW
-                    bigTextScroll("  Mow!   ")
+                    # bigTextScroll(" Mow!  ")
                     self.trac.reset()
         # mow field
         elif bauer.step == Step.MOW:
@@ -414,8 +432,8 @@ class Bauer():
                     self.offsetIsMown = self.offsetIsMown - 1
                 else:
                     self.step = Step.GATHER
-                    bigTextScroll("  Gather!   ")
-                    self.trac = Tractor(COL_TRAC_GATHER_BACK, COL_TRAC_GATHER_FRONT, Orientation.EAST, Direction.STRAIGHT, Gear.NEUTRAL)
+                    # bigTextScroll(" Gather!  ")
+                    self.trac = self.getTracGather()
         # gather hay balls
         elif bauer.step == Step.GATHER:
             if self.field.isGathered():
@@ -423,7 +441,8 @@ class Bauer():
                     self.offsetIsGathered = self.offsetIsGathered - 1
                 else:
                     self.step = Step.GROW
-                    self.field.reset()
+                    self.trac.reset(False)
+                    self.trac = self.getTracMow()
 
     def hello(self):
         # bigTextScroll("  Welcome to: THE BAUER   ")
@@ -476,9 +495,9 @@ class Tractor():
         self.staging = True
         self.reset()
 
-    def reset(self):
+    def reset(self, staging = True):
         self.elements = [[-3, 0], [-2, 0], [-3, 1], [-2, 1]]
-        self.staging = True
+        self.staging = staging
         # self.elements = [[0, 0], [1, 0], [0, 1], [1, 1]]
 
     # drive onto field
