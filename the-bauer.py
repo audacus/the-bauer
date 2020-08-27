@@ -417,13 +417,12 @@ class Bauer():
             self.step = Step.GROW
         # grow field
         elif bauer.step == Step.GROW:
-            self.resetOffsets()
             if self.field.isGrown():
                 if self.offsetIsGrown > 0:
                     self.offsetIsGrown = self.offsetIsGrown - 1
                 else:
                     self.step = Step.MOW
-                    bigTextScroll(" Mow!  ")
+                    bigTextScroll("Mow!")
                     self.trac.reset()
         # mow field
         elif bauer.step == Step.MOW:
@@ -432,7 +431,7 @@ class Bauer():
                     self.offsetIsMown = self.offsetIsMown - 1
                 else:
                     self.step = Step.GATHER
-                    bigTextScroll(" Gather!  ")
+                    bigTextScroll("Gather!")
                     self.trac = self.getTracGather()
         # gather hay balls
         elif bauer.step == Step.GATHER:
@@ -443,13 +442,14 @@ class Bauer():
                     self.step = Step.GROW
                     self.trac.reset(False)
                     self.trac = self.getTracMow()
+                    self.resetOffsets()
 
     def hello(self):
-        bigTextScroll(" Welcome to: THE BAUER  ")
+        bigTextScroll("Welcome to: THE BAUER")
         self.update()
 
     def bye(self):
-        bigTextScroll(" Au revoir!  ")
+        bigTextScroll("Au revoir!")
         self.update()
 
     def grow(self):
