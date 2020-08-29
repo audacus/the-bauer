@@ -302,8 +302,7 @@ class Bauer():
 
         if self.oxo.R1.isPressed():
             self.step = Step.BYE
-
-        if self.step == Step.GROW:
+        elif self.step == Step.GROW:
             self.field.grow()
         elif self.step == Step.MOW or self.step == Step.GATHER:
             # stage tractor
@@ -331,35 +330,39 @@ class Bauer():
             ranover = False
             x = i % width
             y = int(i / width)
-
-            # hayball dot
-            if dot == self.field.HAYBALL:
-                color = COL_HAYBALL
-            # grown / mowed dot
+            if self.step == Step.BYE:
+                color = COL_BLACK
             else:
-                color = self.field.getColor(dot)
+                # hayball dot
+                if dot == self.field.HAYBALL:
+                    color = COL_HAYBALL
+                # grown / mowed dot
+                else:
+                    color = self.field.getColor(dot)
 
-            # check if tractor
-            # back left
-            if self.trac.elements[self.trac.iBL][self.trac.iX] == x and self.trac.elements[self.trac.iBL][self.trac.iY] == y:
-                color = self.trac.colorBack
-                if self.step == Step.MOW or self.step == Step.GATHER:
-                    ranover = True
-            # front left
-            elif self.trac.elements[self.trac.iFL][self.trac.iX] == x and self.trac.elements[self.trac.iFL][self.trac.iY] == y:
-                color = self.trac.colorFront
-                if self.step == Step.MOW or self.step == Step.GATHER:
-                    ranover = True
-            # back right
-            elif self.trac.elements[self.trac.iBR][self.trac.iX] == x and self.trac.elements[self.trac.iBR][self.trac.iY] == y:
-                color = self.trac.colorBack
-                if self.step == Step.MOW or self.step == Step.GATHER:
-                    ranover = True
-            # front right
-            elif self.trac.elements[self.trac.iFR][self.trac.iX] == x and self.trac.elements[self.trac.iFR][self.trac.iY] == y:
-                color = self.trac.colorFront
-                if self.step == Step.MOW or self.step == Step.GATHER:
-                    ranover = True
+                # check if tractor
+                # back left
+                if self.trac.elements[self.trac.iBL][self.trac.iX] == x and self.trac.elements[self.trac.iBL][self.trac.iY] == y:
+                    color = self.trac.colorBack
+                    if self.step == Step.MOW or self.step == Step.GATHER:
+                        ranover = True
+                # front left
+                elif self.trac.elements[self.trac.iFL][self.trac.iX] == x and self.trac.elements[self.trac.iFL][self.trac.iY] == y:
+                    color = self.trac.colorFront
+                    if self.step == Step.MOW or self.step == Step.GATHER:
+                        ranover = True
+                # back right
+                elif self.trac.elements[self.trac.iBR][self.trac.iX] == x and self.trac.elements[self.trac.iBR][self.trac.iY] == y:
+                    color = self.trac.colorBack
+                    if self.step == Step.MOW or self.step == Step.GATHER:
+                        ranover = True
+                # front right
+                elif self.trac.elements[self.trac.iFR][self.trac.iX] == x and self.trac.elements[self.trac.iFR][self.trac.iY] == y:
+                    color = self.trac.colorFront
+                    if self.step == Step.MOW or self.step == Step.GATHER:
+                        ranover = True
+                        
+                
             # set color
             self.matrix[y][x] = color
 
@@ -440,6 +443,7 @@ class Bauer():
                     self.offsetIsGathered = self.offsetIsGathered - 1
                 else:
                     self.step = Step.GROW
+                    bigTextScroll("Grow..")
                     self.trac.reset(False)
                     self.trac = self.getTracMow()
                     self.resetOffsets()
